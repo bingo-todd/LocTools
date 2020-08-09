@@ -1,0 +1,7 @@
+vscode/
+__pycache__/
+dist/
+build/
+MANIFEST
+sync_config
+.idea/
