@@ -73,7 +73,7 @@ def perform_measure(result_log_path, statistic_log_path, chunk_size,
         n_sample = n_sample + n_sample_file
 
     cp = cp/n_sample
-    mse = mse/n_sample*5
+    mse = mse/n_sample * args.azi_resolution
     logger.write(f'mean \n\t mse:{mse} \n\t cp:{cp}')
 
     return mse, cp
@@ -132,7 +132,8 @@ def parse_arg():
                         default=['Room_A', 'Room_B', 'Room_C', 'Room_D'])
     parser.add_argument('--snr-all', dest='snr_all',
                         type=list, default=[0, 10, 20])
-
+    parser.add_argument('--azi-resolution', dest='azi_resolution',
+                        type=int, default=5)
     args = parser.parse_args()
     return args
 
