@@ -6,10 +6,12 @@ import pandas
 
 def load_log(log_path, fig_path=None):
     with open(log_path) as log_file:
-        line_all = log_file.readlines()
+        lines = log_file.readlines()
+        # remove line start with #
+        lines = filter(lambda line: line.strip()[0] != '#', lines)
 
     loc_info_file_all = []
-    for line_i, line in enumerate(line_all):
+    for line_i, line in enumerate(lines):
         file_i_str, file_path, *prob_frame_str_all = line.strip().split(';')  #
         conditions = list(
             map(int,
