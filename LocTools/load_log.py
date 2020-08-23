@@ -4,6 +4,10 @@ import argparse
 import pandas
 
 
+def list2str(x, separator='_'):
+    return separator.join(map(str, x))
+
+
 def load_log(log_path, fig_path=None):
     with open(log_path) as log_file:
         lines = log_file.readlines()
@@ -15,9 +19,9 @@ def load_log(log_path, fig_path=None):
         file_i_str, file_path, *prob_frame_str_all = line.strip().split(';')  #
         conditions = list(
             map(int,
-                os.path.basename(file_path)[:-4].split('_')))
+                os.path.basename(file_path)[:-4].strip().split('_')))
         prob_frame_all = np.asarray(
-            [list(map(float, item.split())) for item in prob_frame_str_all])
+            [list(map(float, item.strip().split())) for item in prob_frame_str_all])
         loc_info_file_all.append([conditions, prob_frame_all])
     return loc_info_file_all
 
@@ -33,9 +37,13 @@ def decision_maker(prob_frame, chunk_size):
 
 
 def perform_measure(result_log_path, statistic_log_path, chunk_size,
-                    src_azi_index=0):
-    if isinstance(src_azi_index, list):
-        src_azi_index = [src_azi_index]
+                    azi_index=0):
+    if not isinstance(azi_index, list):
+        azi_index = [azi_index]
+    
+    if not os.path.exists(result_log_path):
+        print(f'{result_log_path} do not exist')
+        return 0, 0
 
     loc_info_file_all = load_log(result_log_path)
 
@@ -44,14 +52,12 @@ def perform_measure(result_log_path, statistic_log_path, chunk_size,
     cp = 0
     mse = 0
     n_sample = 0
-
     for loc_info_file in loc_info_file_all:
         conditions, prob_frame_all = loc_info_file
-
         azi_est = decision_maker(prob_frame_all, chunk_size)
         n_sample_file = azi_est.shape[0]
 
-        src_azi_all = np.asarray([conditions[i] for i in [src_azi_index]])
+        src_azi_all = np.asarray([conditions[i] for i in azi_index])
 
         success_loc = np.logical_or.reduce(
             [azi_est == src_azi for src_azi in src_azi_all])
@@ -85,15 +91,33 @@ def main(args):
 
     n_room = len(args.room_all)
     n_snr = len(args.snr_all)
-    result_all = np.empty((n_room, n_snr), object)
+    
+    if not isinstance(args.run_id_all, list):
+        run_id_all = [args.run_id_all] 
+    else:
+        run_id_all = args.run_id_all
+    n_run = len(run_id_all)
+
+    result_all = np.zeros((n_room, n_snr, n_run, 2))
+    statistic_dir = ''.join((
+        f'{args.model_dir}/statistic_log/',
+        f'chunksize{args.chunk_size}_srcaziindex{list2str(args.azi_index)}'))
     for room_i, room in enumerate(args.room_all):
         for snr_i, snr in enumerate(args.snr_all):
-            result_all[room_i, snr_i] = perform_measure(
-                f'{args.model_dir}/local_log/{room}_{snr}.txt',
-                (f'{args.model_dir}/statistic_log/'
-                 + f'{room}_{snr}_{args.chunk_size}.txt'),
-                args.chunk_size)
-
+            for run_i, run_id in enumerate(run_id_all):
+                result_all[room_i, snr_i, run_i] = perform_measure(
+                    f'{args.model_dir}/loc_log/{room}_{snr}_{run_id}.txt',
+                    f'{statistic_dir}/{room}_{snr}_{run_id}.txt',
+                    args.chunk_size,
+                    args.azi_index)
+    # average across all run
+    print(f'average across run {run_id_all}')
+    result_all = np.mean(result_all, axis=2)
+    if args.print_result:
+        print('mse')
+        print(result_all[:, :, 0])
+        print('cp')
+        print(result_all[:, :, 1])
     # save to csv
     data_frame = pandas.DataFrame(
         columns=['Measure', 'Room', '0dB', '10dB', '20dB'])
@@ -101,11 +125,11 @@ def main(args):
     row_cp_all = []
     for room_i, room in enumerate(args.room_all):
         tmp = {'Room': room}
-        row_mse_tmp = {f'{snr}dB': result_all[room_i, snr_i][0]
+        row_mse_tmp = {f'{snr}dB': result_all[room_i, snr_i, 0]
                        for snr_i, snr in enumerate(args.snr_all)}
         row_mse_all.append({**tmp, **row_mse_tmp})
 
-        row_cp_tmp = {f'{snr}dB': result_all[room_i, snr_i][1]
+        row_cp_tmp = {f'{snr}dB': result_all[room_i, snr_i, 1]
                       for snr_i, snr in enumerate(args.snr_all)}
         row_cp_all.append({**tmp, **row_cp_tmp})
 
@@ -115,10 +139,13 @@ def main(args):
     data_frame = data_frame.append({'Measure': 'cp'}, ignore_index=True)
     data_frame = data_frame.append(row_cp_all, ignore_index=True)
 
-    if args.csv_path is None:
-        csv_path = f'{args.model_dir}/result_{args.chunk_size}.csv'
-    else:
-        csv_path = args.csv_path
+    csv_path = ''.join((
+        f'{args.model_dir}/result_csv/',
+        '_'.join((
+            f'runid{list2str(args.run_id_all)}',
+            f'chunksize{args.chunk_size}',
+            f'aziindex{list2str(args.azi_index)}.csv'))))
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     data_frame.to_csv(csv_path, index=False, index_label=None)
 
 
@@ -128,14 +155,18 @@ def parse_arg():
                         required=True, type=str, help='directory of model')
     parser.add_argument('--chunk-size', dest='chunk_size', required=True,
                         type=int, help='sample number of a chunk')
-    parser.add_argument('--csv-path', dest='csv_path', default=None,
-                        type=str, help='csv file contain result')
-    parser.add_argument('--room-all', dest='room_all', type=list,
-                        default=['Room_A', 'Room_B', 'Room_C', 'Room_D'])
-    parser.add_argument('--snr-all', dest='snr_all',
-                        type=list, default=[0, 10, 20])
+    parser.add_argument('--room-all', dest='room_all', type=str,
+                        nargs='+', default=['Room_A', 'Room_B', 'Room_C', 'Room_D'])
+    parser.add_argument('--snr-all', dest='snr_all', type=int, 
+                        nargs='+', default=[0, 10, 20])
+    parser.add_argument('--run-id-all', dest='run_id_all', type=int, 
+                        nargs='+', default=[1, 2, 3, 4])
     parser.add_argument('--azi-resolution', dest='azi_resolution',
                         type=int, default=5)
+    parser.add_argument('--azi-index', dest='azi_index', type=int, 
+                        nargs='+', default=0)
+    parser.add_argument('--print-result', dest='print_result', type=bool, 
+                        default=True)
     args = parser.parse_args()
     return args
 
