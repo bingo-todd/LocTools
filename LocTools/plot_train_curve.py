@@ -19,7 +19,7 @@ def plot_train_curve(model_dir, model_label, fig_path, room=None):
         model_labels = model_label
 
     if room is None:
-        rooms = ['Anechoic', 'Room_A', 'Room_B', 'Room_C', 'Room_D']
+        rooms = ['Room_A', 'Room_B', 'Room_C', 'Room_D']
     elif not isinstance(room, list):
         rooms = [room]
     else:
@@ -54,13 +54,13 @@ def plot_train_curve(model_dir, model_label, fig_path, room=None):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='plot learning curve')
-    parser.add_argument('--model-dir', type=str, dest='model_dir',
-            required=True, action='append', help='base dir of mct model')
-    parser.add_argument('--model-label', type=str, dest='model_label', 
-            required=True, action='append', help='model type')
+    parser.add_argument('--model-dir', type=str, dest='model_dir', nargs='+',
+            required=True,  help='base dir of mct model')
+    parser.add_argument('--model-label', type=str, dest='model_label', nargs='+',
+            required=True, help='model type')
     parser.add_argument('--fig-path', type=str, dest='fig_path', 
             default='train_process.png', help='figure path')
-    parser.add_argument('--rooms', type=str, dest='rooms', default=None, 
+    parser.add_argument('--room', type=str, dest='room', default=None, 
             action='append', help='room name, subfolder name of model-dir')
     args = parser.parse_args()
     return args
@@ -68,7 +68,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    plot_train_curve(args.model_dir, args.model_label, args.fig_path, args.rooms)
+    plot_train_curve(args.model_dir, args.model_label, args.fig_path, args.room)
 
 
 if __name__ == '__main__':
