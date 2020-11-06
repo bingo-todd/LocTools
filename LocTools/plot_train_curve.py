@@ -1,74 +1,59 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import os
 import argparse
-# from BasicTools import plot_tools
 
 
-def plot_train_curve(model_dir, model_label, fig_path, room=None):
-
-    plt.rcParams.update({"font.size": "10"})
-    # linestyle_all = ('solid', 'dashed', 'dotted')
-    plot_settings = {'linewidth': 3}   # , 'color':'black'}
-
-    if not isinstance(model_dir, list):
-        model_dir_all = [model_dir]
-        model_labels = [model_labels]
+def tolist(x):
+    if not isinstance(x, list):
+        return [x]
     else:
-        model_dir_all = model_dir
-        model_labels = model_label
+        return x
 
-    if room is None:
-        rooms = ['Room_A', 'Room_B', 'Room_C', 'Room_D']
-    elif not isinstance(room, list):
-        rooms = [room]
-    else:
-        rooms = room
-    n_room = len(rooms)
 
-    fig, ax = plt.subplots(1, n_room, tight_layout=True, sharex=True, sharey=True)
-    if n_room == 1:
-        ax = [ax]
-    for model_dir, model_label in zip(model_dir_all, model_labels):
-        for room_i, room in enumerate(rooms):
-            record_path = f'{model_dir}/{room}/train_record.npz'
-            if os.path.exists(record_path):
-                record_info = np.load(record_path)
-                try:
-                    loss_record = record_info['loss_record']
-                except Exception:
-                    loss_record = record_info['loss_loc_record']
-                n_epoch = np.nonzero(loss_record)[0][-1] + 1
-                ax[room_i].plot(loss_record[:n_epoch], label=model_label, **plot_settings)
-            else:
-                print(f'{record_path} not exists')
+def plot_train_curve(train_record_path, label, fig_path,
+                     var_name='loss_record', dpi=100):
 
-    for room_i, room in enumerate(rooms):
-        ax[room_i].set_xlabel('Epoch')
-        ax[room_i].set_title(room)
+    train_record_paths = tolist(train_record_path)
+    labels = tolist(label)
 
-    ax[0].set_ylabel('loss')
-    ax[-1].legend()
-    fig.savefig(fig_path)
+    fig, ax = plt.subplots(1, 1)
+    for train_record_path, label in zip(train_record_paths, labels):
+        record_info = np.load(train_record_path)
+        loss_record = record_info[var_name]
+        n_epoch = np.max(np.nonzero(loss_record)[0])
+        loss_record = loss_record[:n_epoch+1]
+        ax.plot(loss_record, label=label)
+
+    ax.set_ylabel(var_name)
+    ax.legend()
+    fig.savefig(fig_path, dpi=dpi)
+    print(f'fig is saved to {fig_path}')
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='plot learning curve')
-    parser.add_argument('--model-dir', type=str, dest='model_dir', nargs='+',
-            required=True,  help='base dir of mct model')
-    parser.add_argument('--model-label', type=str, dest='model_label', nargs='+',
-            required=True, help='model type')
-    parser.add_argument('--fig-path', type=str, dest='fig_path', 
-            default='train_process.png', help='figure path')
-    parser.add_argument('--room', type=str, dest='room', default=None, 
-            action='append', help='room name, subfolder name of model-dir')
+    parser.add_argument('--train-record', dest='train_record_path', type=str,
+                        required=True, nargs='+',
+                        help='train record path')
+    parser.add_argument('--label', dest='label', type=str, required=True,
+                        nargs='+', help='label for each train record')
+    parser.add_argument('--var-name', dest='var_name', type=str,
+                        default='loss_record', help='')
+    parser.add_argument('--fig-path', dest='fig_path', type=str, required=True,
+                        help='')
+    parser.add_argument('--dpi', dest='dpi', type=int, default=100,
+                        help='dpi if figure')
     args = parser.parse_args()
     return args
 
 
 def main():
     args = parse_args()
-    plot_train_curve(args.model_dir, args.model_label, args.fig_path, args.room)
+    plot_train_curve(train_record_path=args.train_record_path,
+                     label=args.label,
+                     fig_path=args.fig_path,
+                     var_name=args.var_name,
+                     dpi=args.dpi)
 
 
 if __name__ == '__main__':
