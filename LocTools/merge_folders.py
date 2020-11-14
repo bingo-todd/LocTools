@@ -5,14 +5,31 @@ from BasicTools.get_file_path import get_file_path, get_realpath
 from BasicTools.parse_file import file2dict
 
 
+def read_txt(txt_path, merged_folder_path, root_dir):
+    folder_realpath = get_realpath(os.path.dirname(txt_path), root_dir)
+    dict_obj = file2dict(txt_path)
+    new_dict_obj = {}
+    for tmp_realpath in dict_obj.keys():
+        # if the file of file_path_tmp is in the dir,
+        # update its path
+        tmp_dir = os.path.dirname(tmp_realpath)
+        tmp_name = os.path.basename(tmp_realpath)
+        if tmp_dir == folder_realpath:
+            new_tmp_realpath = get_realpath(f'{merged_folder_path}/{tmp_name}',
+                                            root_dir)
+            new_dict_obj[new_tmp_realpath] = dict_obj[tmp_realpath]
+            text = '\n'.join(
+                [f'{key}: {value}' for key, value in new_dict_obj.items()])
+    return text
+
+
 def merge_folders(folder_paths, merged_folder_path, concat_text=True,
-                  keep_source=True, modify_log=True, verbose=False,
-                  root_dir='~/Work_Space'):
+                  make_symlink=False, keep_source=True, modify_log=True,
+                  verbose=False, root_dir='~/Work_Space'):
 
     os.makedirs(merged_folder_path, exist_ok=True)
 
     for folder_path in folder_paths:
-        folder_realpath = get_realpath(folder_path, root_dir)
         src_file_paths = get_file_path(folder_path, is_absolute=True)
         for src_file_path in src_file_paths:
             file_name = os.path.basename(src_file_path)
@@ -24,22 +41,8 @@ def merge_folders(folder_paths, merged_folder_path, concat_text=True,
             if file_name.endswith('.txt'):
                 if modify_log:  # change file path in log correspondingly
                     try:  # if txt file is a log
-                        dict_obj = file2dict(src_file_path)
-                        new_dict_obj = {}
-                        for tmp_realpath in dict_obj.keys():
-                            # if the file of file_path_tmp is in the dir,
-                            # update its path
-                            tmp_dir = os.path.dirname(tmp_realpath)
-                            tmp_name = os.path.basename(tmp_realpath)
-                            if tmp_dir == folder_realpath:
-                                new_tmp_realpath = get_realpath(
-                                    f'{merged_folder_path}/{tmp_name}',
-                                    root_dir)
-                            new_dict_obj[new_tmp_realpath] = \
-                                dict_obj[tmp_realpath]
-                        text = '\n'.join(
-                            [f'{key}: {value}'
-                             for key, value in new_dict_obj.items()])
+                        text = read_txt(src_file_path, merged_folder_path,
+                                        root_dir)
                     except Exception:
                         src_file = open(src_file_path, 'r')
                         text = '\n'.join(src_file.readlines())
@@ -58,9 +61,12 @@ def merge_folders(folder_paths, merged_folder_path, concat_text=True,
                 dest_file.close()
 
             else:  # overwrite if not a txt file
-                shutil.copy(src_file_path, dest_file_path)
+                if make_symlink:
+                    os.symlink(src_file_path, dest_file_path)
+                else:
+                    shutil.copy(src_file_path, dest_file_path)
 
-        if not keep_source:
+        if not keep_source and not make_symlink:
             shutil.rmtree(folder_path)
 
 
@@ -70,6 +76,9 @@ def parse_args():
                         nargs='+', type=str, help='folder to be merged')
     parser.add_argument('--merged-folder', dest='merged_folder_path',
                         type=str, help='merged folder')
+    parser.add_argument('--make-symlink', dest='make_symlink', type=str,
+                        default='false', choices=['true', 'false'],
+                        help='merged folder')
     parser.add_argument('--root-dir', dest='root_dir', type=str,
                         default='~/Work_Space', help='merged folder')
     parser.add_argument('--verbose', dest='verbose', type=str,

@@ -1,10 +1,19 @@
 import numpy as np
 import argparse
 from BasicTools import parse_file
+from LocTools.add_log import add_log
 
 
-def merge_logs(log0_path, log1_path, merged_log_path, average_repeat=False,
-               dtype=float):
+def merge_logs(log0_path, log1_path, merged_log_path, repeat_processor):
+    """
+    Args:
+        log0_path, log1_path: the path of logs to be merged
+        merged_log_path: where the merged log is saved
+        repeat_processor: how to deal with possible repeat keys in merged_log,
+            'average': default, average the value of repeat keys
+            'keep': keep all repeat keys
+            'none': overwrite
+    """
     log0 = parse_file.file2dict(log0_path)
     log1 = parse_file.file2dict(log1_path)
 
@@ -12,30 +21,30 @@ def merge_logs(log0_path, log1_path, merged_log_path, average_repeat=False,
     for key in log0.keys():
         if key not in log1.keys():
             raise Exception(f'{key} not in {log1_path}')
-        if log0[key] in merged_log.keys():
-            if average_repeat:
-                if isinstance(merged_log[log0[key]], list):
-                    merged_log[log0[key]].append(log1[key])
-                else:
-                    merged_log[log0[key]] = [merged_log[log0[key]], log1[key]]
-            else:
-                raise Exception(f'repeate {log0[key]} in {log0_path}')
+        if log0[key] in merged_log.keys():  # repeat key
+                merged_log[log0[key]].append(log1[key])
         else:
-            merged_log[log0[key]] = log1[key]
+            merged_log[log0[key]] = [log1[key]]
 
-    if average_repeat:
-        for key in merged_log.keys():
-            if isinstance(merged_log[key], list):
-                value_tmp = np.asarray(
-                    [[list(map(dtype, row.strip().split(' ')))
-                      for row in value_tmp.strip().split(';')]
-                     for value_tmp in merged_log[key]])
-                # print(f'key:{key} n_sample:{value_tmp.shape[0]}')
-                value_averaged = np.mean(value_tmp, axis=0)
-                merged_log[key] = '; '.join([' '.join(map(str, row))
-                                             for row in value_averaged])
-    return
-    parse_file.dict2file(merged_log_path, merged_log)
+    # deal with repeat keys in merged_log
+    merged_logger = open(merged_log_path, 'x')
+    for key in merged_log.keys():
+        if repeat_processor == 'average':  # numeric should be true
+            value = np.mean(
+                np.asarray([[[float(item) for item in row.split()]
+                             for row in value_tmp.split(';')]
+                            for value_tmp in merged_log[key]]),
+                axis=0)
+            add_log(merged_logger, key, value)
+        elif repeat_processor == 'keep':
+            for value in merged_log[key]:
+                merged_logger.write(f'{key}: {value}\n')
+        elif repeat_processor == 'none':
+            value = merged_log[key][0]
+            merged_logger.write(f'{key}: {value}\n')
+        else:
+            print('illegal argument for repeat_processor')
+    merged_logger.close()
 
 
 def parse_arg():
@@ -44,8 +53,9 @@ def parse_arg():
                         required=True, type=str, help='')
     parser.add_argument('--merged-log', dest='merged_log_path',
                         required=True, type=str)
-    parser.add_argument('--average-repeat', dest='average_repeat',
-                        type=str, default='true', choices=['true', 'false'])
+    parser.add_argument('--repeat-processor', dest='repeat_processor',
+                        type=str, default='keep',
+                        choices=['average', 'keep', 'none'])
     args = parser.parse_args()
     return args
 
@@ -55,7 +65,7 @@ def main():
     merge_logs(log0_path=args.log_path[0],
                log1_path=args.log_path[1],
                merged_log_path=args.merged_log_path,
-               average_repeat=args.average_repeat == 'true')
+               repeat_processor=args.repeat_processor)
 
 
 if __name__ == '__main__':
