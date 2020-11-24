@@ -3,6 +3,7 @@ import os
 import argparse
 from BasicTools.parse_file import file2dict, dict2file
 from BasicTools.wav_tools import frame_data
+from BasicTools.ProcessBar import ProcessBar
 
 
 def list2str(x):
@@ -16,21 +17,22 @@ def convert2list(x):
         return x
 
 
-def load_log(loc_log_path, vad_log_path, chunksize, chunkshift,
-             result_dir=None, azi_pos=0, print_result=False):
-    """"""
-    azi_pos = convert2list(azi_pos)
+def load_log(loc_log_path, vad_log_path, chunksize, result_dir=None,
+             azi_pos=0, keep_sample_num=False, print_result=False):
+    """load loc log
+
+    """
+    azi_pos_all = convert2list(azi_pos)  # allow multiple azi grandtruth
 
     # check if result_log exists
     log_name = os.path.basename(loc_log_path).split('.')[0]
     if result_dir is None:
         result_dir = os.path.dirname(os.path.dirname(loc_log_path))
     statistic_dir = (f'{result_dir}/'
-                     + '_'.join((f'chunksize-{chunksize}',
-                                 f'chunkshift-{chunkshift}',
-                                 f'azipos-{list2str(azi_pos)}')))
+                     + '-'.join((f'chunksize_{chunksize}',
+                                 f'azipos_{list2str(azi_pos_all)}')))
     if vad_log_path is not None:
-        statistic_dir = statistic_dir + '_vad'
+        statistic_dir = statistic_dir + '-vad'
     os.makedirs(statistic_dir)
 
     statistic_log_path = f'{statistic_dir}/{log_name}.txt'
@@ -50,45 +52,54 @@ def load_log(loc_log_path, vad_log_path, chunksize, chunkshift,
         vad_log = {key: np.squeeze(np.asarray(value))
                    for key, value in vad_log.items()}
 
-    loc_result_all = {}
-    performance_all = {}
-    for feat_path in loc_log.keys():
-        mean_output_chunk = np.mean(
-            frame_data(loc_log[feat_path],
-                       frame_len=chunksize,
-                       shift_len=chunkshift),
-            axis=1)
-        if chunksize == 1 and vad_log is not None:
-            mean_output_chunk = \
-                mean_output_chunk[np.where(vad_log[feat_path] == 1)]
+    result_log = {}
+    performance_log = {}
+    feat_paths = list(loc_log.keys())
+    pb = ProcessBar(feat_paths)
+    for feat_path in feat_paths:
+        pb.update()
+        output = loc_log[feat_path]
+        if chunksize > 1:
+            if keep_sample_num:
+                # padd chunksize-1 in the begining, as result, output will have
+                # the same shape after framing and averaging
+                output = np.pad(output, ((chunksize-1, 0), (0, 0)))
+            output = np.mean(
+                frame_data(output, frame_len=chunksize, frame_shift=1),
+                axis=1)
+        else:  # chunksize == 1
+            if vad_log is not None:
+                n_sample = min((vad_log[feat_path].shape[0], output.shape[0]))
+                vad = vad_log[feat_path][-n_sample:]
+                output = output[-n_sample:][np.where(vad == 1)]
 
-        loc_result_all[feat_path] = np.argmax(mean_output_chunk, axis=1)
-        n_chunk = loc_result_all[feat_path].shape[0]
+        result_log[feat_path] = np.argmax(output, axis=1)
+        n_sample = result_log[feat_path].shape[0]
 
         feat_name = os.path.basename(feat_path).split('.')[0]
-        conditions = list(map(float, feat_name.split('_')))
-        azi_grandtrue = np.asarray([conditions[i] for i in azi_pos])
+        attrs = list(map(float, feat_name.split('_')))
+        azi_grandtrue = np.asarray([attrs[i] for i in azi_pos_all])
         diff = np.min(
             np.abs(
-                (loc_result_all[feat_path][:, np.newaxis]
+                (result_log[feat_path][:, np.newaxis]
                  - azi_grandtrue[np.newaxis, :])),
             axis=1)
-        if n_chunk > 0:
-            rmse = np.sqrt(np.sum(diff**2)/n_chunk)
-            cp = np.nonzero(diff < 1e-5)[0].shape[0]/n_chunk
+        if n_sample > 0:
+            rmse = np.sqrt(np.sum(diff**2)/n_sample)
+            cp = np.nonzero(diff < 1e-5)[0].shape[0]/n_sample
         else:
             rmse = -1
             cp = -1
-        performance_all[feat_path] = [cp, rmse]
+        performance_log[feat_path] = [cp, rmse]
 
     # write to file
-    dict2file(performance_all, statistic_log_path, item_format='.4f')
-    dict2file(loc_result_all, result_log_path, item_format='2d')
+    dict2file(performance_log, statistic_log_path, item_format='.4f')
+    dict2file(result_log, result_log_path, item_format='2d')
 
     # average over all feat files
     cp_mean, rmse_mean = np.mean(
         np.asarray(
-            list(performance_all.values())),
+            list(performance_log.values())),
         axis=0)
     print('average result')
     print(f'cp:{cp_mean:.4e} rmse:{rmse_mean:.4e}')
@@ -107,10 +118,10 @@ def parse_arg():
                         default=None, help='where to save result files')
     parser.add_argument('--chunksize', dest='chunksize', required=True,
                         type=int, help='sample number of a chunk')
-    parser.add_argument('--chunkshift', dest='chunkshift', required=True,
-                        type=int, help='sample shift between adjacent chunks')
-    parser.add_argument('--azi-pos', dest='azi_pos', type=int,
+    parser.add_argument('--azi-pos', dest='azi_pos', required=True, type=int,
                         nargs='+', default=0)
+    parser.add_argument('--keep-sample-num', dest='keep_sample_num', type=str,
+                        default='false', choices=['true', 'false'])
     parser.add_argument('--print-result', dest='print_result', type=str,
                         default='true', choices=['true', 'false'])
     args = parser.parse_args()
@@ -123,9 +134,9 @@ def main():
     load_log(loc_log_path=args.loc_log_path,
              vad_log_path=args.vad_log_path,
              chunksize=args.chunksize,
-             chunkshift=args.chunkshift,
              result_dir=args.result_dir,
              azi_pos=args.azi_pos,
+             keep_sample_num=args.keep_sample_num == 'true',
              print_result=args.print_result == 'true')
 
 

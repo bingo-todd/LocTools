@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 
 def plot_result_eg(log_paths, file_name_required, fig_path, labels=None,
-                   dpi=100, x_starts=None):
+                   dpi=100, transparent=False, x_starts=None):
 
     if labels is None:
         labels = [os.path.basename(log_path) for log_path in log_paths]
@@ -16,6 +16,7 @@ def plot_result_eg(log_paths, file_name_required, fig_path, labels=None,
     for log_path in log_paths:
         with open(log_path) as log_file:
             line_all = log_file.readlines()
+        y = None
         for line_i, line in enumerate(line_all):
             file_path, prob_frame_str = line.strip().split(':')
             file_name = os.path.basename(file_path).split('.')[0]
@@ -24,6 +25,8 @@ def plot_result_eg(log_paths, file_name_required, fig_path, labels=None,
                     np.asarray(
                         [list(map(float, row.split()))
                          for row in prob_frame_str.split(';')]))
+        if y is None:
+            raise Exception(f'{file_name} not found')
         y_all.append(y)
 
     if len(y_all[0].shape) == 1:
@@ -38,7 +41,7 @@ def plot_result_eg(log_paths, file_name_required, fig_path, labels=None,
             ax.imshow(y.T, aspect='auto', cmap='jet', origin='lower')
             ax.set_title(labels[i])
     ax.set_xlabel('frame')
-    fig.savefig(fig_path)
+    fig.savefig(fig_path, transparent=transparent)
     print(f'fig is saved to {fig_path}')
     return True
 
@@ -55,6 +58,8 @@ def parse_arg():
                         help='where figure will be saved')
     parser.add_argument('--dpi', dest='dpi', type=int, default=100,
                         help='')
+    parser.add_argument('--transparent', dest='transparent', type=str,
+                        default='false', choices=['true', 'false'], help='')
     parser.add_argument('--file-name', dest='file_name_required',
                         required=True, type=str, help='which file to be plot')
     args = parser.parse_args()
@@ -68,4 +73,5 @@ if __name__ == "__main__":
                    fig_path=args.fig_path,
                    labels=args.labels,
                    dpi=args.dpi,
+                   transparent=args.transparent == 'true',
                    x_starts=args.x_starts)

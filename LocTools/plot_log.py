@@ -14,22 +14,21 @@ def iterable(obj):
 
 
 def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
-             var_name=None, plot_settings=None, plot_bar=True):
-
+             var_name=None, plot_settings=None, plot_bar=True, log_i=0):
     log = file2dict(log_path, numeric=True, repeat_processor='keep')
     keys = list(log.keys())
+
     n_field = log[keys[0]][0].shape[1]  # n_repeat * n_row * n_col
     if var_name is None:
         var_name = [f'value_{i}' for i in range(n_field)]
 
-    # split keys into bins
+    #
     keys_value = np.asarray([float(key) for key in keys])
-    sort_order = np.argsort(keys_value)
-    keys_value_sorted = keys_value[sort_order]
-    keys_sorted = [keys[i] for i in sort_order]
+    sort_index = np.argsort(keys_value)
+
     if n_bin > 1:
-        max_key_value = keys_value_sorted[-1]
-        min_key_value = keys_value_sorted[0]
+        min_key_value = keys_value[sort_index[0]]
+        max_key_value = keys_value[sort_index[-1]]
         bin_width = (max_key_value-min_key_value + 1e-10)/n_bin
         keys_in_bins = [[] for i in range(n_bin)]
         x = np.zeros(n_bin)
@@ -37,15 +36,15 @@ def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
             left_edge = bin_i*bin_width+min_key_value
             right_edge = left_edge + bin_width
             x[bin_i] = (left_edge+right_edge)/2.
-            for key in log.keys():
-                key_float = float(key)
-                if key_float >= left_edge and key_float < right_edge:
+            for key in keys:
+                key_value = float(key)
+                if key_value >= left_edge and key_value < right_edge:
                     keys_in_bins[bin_i].append(key)
     elif n_bin == -1:
-        n_bin = len(keys_sorted)
-        x = keys_value_sorted
-        bin_width = np.min(keys_value_sorted[1:] - keys_value_sorted[:-1])
-        keys_in_bins = [[key] for key in keys_sorted]
+        n_bin = len(keys)
+        x = np.asarray([keys_value[i] for i in sort_index])
+        keys_in_bins = [[keys[i]] for i in sort_index]
+        bin_width = np.min(x[1:] - x[:-1])
 
     if ax is None:
         fig, ax = plt.subplots(1, n_field, tight_layout=True,
@@ -55,15 +54,18 @@ def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
     if not iterable(ax):
         ax = [ax]
 
+    x_shift = bin_width/2/5*log_i
     for field_i in range(n_field):
         y_mean, y_std = np.zeros(n_bin), np.zeros(n_bin)
         for bin_i in range(n_bin):
-            y_tmp = np.asarray(
-                [log[key][0][field_i] for key in keys_in_bins[bin_i]])
+            y_tmp = []
+            for key in keys_in_bins[bin_i]:
+                for item in log[key]:
+                    y_tmp.append(item[0, field_i])
             y_mean[bin_i] = np.mean(y_tmp)
             y_std[bin_i] = np.std(y_tmp)
 
-        ax[field_i].errorbar(x, y_mean, yerr=y_std/2, **plot_settings)
+        ax[field_i].errorbar(x+x_shift, y_mean, yerr=y_std/2, **plot_settings)
         ax[field_i].set_title(var_name[field_i])
 
     if fig_path is not None:
@@ -122,7 +124,8 @@ def main():
                  n_bin=args.n_bin,
                  var_name=args.var_name,
                  ax=ax,
-                 plot_bar=False)
+                 plot_bar=False,
+                 log_i=log_i)
 
     for ax_i in range(len(ax)):
         ax[ax_i].set_xlabel(args.xlabel)

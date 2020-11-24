@@ -16,7 +16,7 @@ def convert2list(x):
         return x
 
 
-def load_log(est_log_path, gt_log_path, result_dir=None, print_result=False,
+def load_log(est_log_path, gt_log_path, result_dir=None, label_pos=None,
              cal_cp=True, cal_rmse=True, end_align=True, show_process=True):
     """"""
 
@@ -39,8 +39,9 @@ def load_log(est_log_path, gt_log_path, result_dir=None, print_result=False,
 
     result_log = {}
     statistic_log = {}
-    pb = ProcessBar(len(list(est_log.keys())))
-    for key in est_log.keys():
+    keys = list(est_log.keys())
+    pb = ProcessBar(len(keys))
+    for key in keys:
         pb.update()
         result_log[key] = np.expand_dims(
             np.argmax(est_log[key], axis=1),

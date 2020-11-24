@@ -11,7 +11,7 @@ def concat_logs(log0_path, log1_path, concat_log_path):
         if log0[key] not in log1.keys():
             raise Exception(f'{log0[key]} not in {log1_path}')
         concat_log[key] = log1[log0[key]]
-    parse_file.dict2file(concat_log_path, concat_log)
+    parse_file.dict2file(concat_log, concat_log_path)
 
 
 def parse_arg():
