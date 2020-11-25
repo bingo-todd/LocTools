@@ -3,7 +3,6 @@ import os
 import argparse
 from BasicTools.parse_file import file2dict, dict2file
 from BasicTools.wav_tools import frame_data
-from BasicTools.ProcessBar import ProcessBar
 
 
 def list2str(x):
@@ -33,18 +32,17 @@ def load_log(loc_log_path, vad_log_path, chunksize, result_dir=None,
                                  f'azipos_{list2str(azi_pos_all)}')))
     if vad_log_path is not None:
         statistic_dir = statistic_dir + '-vad'
-    os.makedirs(statistic_dir)
+    os.makedirs(statistic_dir, exist_ok=True)
 
     statistic_log_path = f'{statistic_dir}/{log_name}.txt'
     if os.path.exists(statistic_log_path):
         raise FileExistsError(statistic_log_path)
 
-    os.makedirs(f'{statistic_dir}/log')
+    os.makedirs(f'{statistic_dir}/log', exist_ok=True)
     result_log_path = f'{statistic_dir}/log/{log_name}.txt'
     if os.path.exists(result_log_path):
         raise FileExistsError(result_log_path)
 
-    loc_log = file2dict(loc_log_path, numeric=True)
     if vad_log_path is None:
         vad_log = None
     else:
@@ -54,11 +52,12 @@ def load_log(loc_log_path, vad_log_path, chunksize, result_dir=None,
 
     result_log = {}
     performance_log = {}
-    feat_paths = list(loc_log.keys())
-    pb = ProcessBar(feat_paths)
-    for feat_path in feat_paths:
-        pb.update()
-        output = loc_log[feat_path]
+
+    loc_logger = open(loc_log_path, 'r')
+    for line_i, line in enumerate(loc_logger):
+        feat_path, output = line.split(':')
+        output = np.asarray([[np.float32(item) for item in row.split()]
+                             for row in output.split(';')], dtype=np.float32)
         if chunksize > 1:
             if keep_sample_num:
                 # padd chunksize-1 in the begining, as result, output will have
@@ -91,6 +90,7 @@ def load_log(loc_log_path, vad_log_path, chunksize, result_dir=None,
             rmse = -1
             cp = -1
         performance_log[feat_path] = [cp, rmse]
+    loc_logger.close()
 
     # write to file
     dict2file(performance_log, statistic_log_path, item_format='.4f')

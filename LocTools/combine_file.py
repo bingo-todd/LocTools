@@ -21,13 +21,14 @@ def combine_file(dir_path, dest_file_path):
             with open(src_file_path, 'r') as src_file:
                 lines = src_file.readlines()
             dest_file.write(''.join(lines))
+            dest_file.flush()
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='parse argments')
     parser.add_argument('--dir', dest='dir_path', required=True,
                         type=str, help='')
-    parser.add_argument('--dest-file', dest='dest_file_path',
+    parser.add_argument('--file', dest='dest_file_path',
                         required=True, type=str, help='')
     args = parser.parse_args()
     return args
