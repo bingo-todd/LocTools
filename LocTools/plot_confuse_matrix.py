@@ -35,10 +35,20 @@ def plot_confuse_matrix(log_path, fig_path=None):
     confuse_matrix = confuse_matrix/sum_tmp[:, np.newaxis]
 
     print('confuse matrix')
-    print(confuse_matrix)
+    with np.printoptions(precision=2, suppress=True, floatmode='fixed'):
+        print(confuse_matrix)
 
     if fig_path is not None:
-        fig, ax = plot_tools.plot_confuse_matrix(confuse_matrix)
+        n_label = confuse_matrix.shape[0]
+        if n_label < 50:
+            fig, ax = plot_tools.plot_confuse_matrix(confuse_matrix)
+        else:
+            fig, ax = plt.subplots(1, 1)
+            plt.imshow(confuse_matrix.T, cmap='Blues', aspect='auto')
+            plt.colorbar()
+            ax.set_xlabel('estimation')
+            ax.set_ylabel('label')
+
         fig.savefig(fig_path)
         plt.close(fig)
         print(f'figure is saved to {fig_path}')
@@ -46,10 +56,10 @@ def plot_confuse_matrix(log_path, fig_path=None):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='parse arguments')
-    parser.add_argument('--log-path', dest='log_path', type=str,
-                        required=True, help='')
-    parser.add_argument('--fig-path', dest='fig_path', type=str,
-                        default=None)
+    parser.add_argument('--log-path', dest='log_path', type=str, required=True,
+                        help='')
+    parser.add_argument('--fig-path', dest='fig_path', type=str, required=True,
+                        help='')
     args = parser.parse_args()
     return args
 

@@ -14,10 +14,9 @@ def plot_result_eg(log_paths, file_name_required, fig_path, labels=None,
 
     y_all = []
     for log_path in log_paths:
-        with open(log_path) as log_file:
-            line_all = log_file.readlines()
         y = None
-        for line_i, line in enumerate(line_all):
+        log_file = open(log_path, 'r')
+        for line in log_file:
             file_path, prob_frame_str = line.strip().split(':')
             file_name = os.path.basename(file_path).split('.')[0]
             if file_name == file_name_required:
@@ -25,6 +24,7 @@ def plot_result_eg(log_paths, file_name_required, fig_path, labels=None,
                     np.asarray(
                         [list(map(float, row.split()))
                          for row in prob_frame_str.split(';')]))
+                break
         if y is None:
             raise Exception(f'{file_name} not found')
         y_all.append(y)

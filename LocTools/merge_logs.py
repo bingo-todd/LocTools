@@ -22,7 +22,7 @@ def merge_logs(log0_path, log1_path, merged_log_path, repeat_processor):
         if key not in log1.keys():
             raise Exception(f'{key} not in {log1_path}')
         if log0[key] in merged_log.keys():  # repeat key
-                merged_log[log0[key]].append(log1[key])
+            merged_log[log0[key]].append(log1[key])
         else:
             merged_log[log0[key]] = [log1[key]]
 

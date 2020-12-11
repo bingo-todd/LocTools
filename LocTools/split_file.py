@@ -3,36 +3,44 @@ import os
 import numpy as np
 
 
-def split_file(src_file_path, dest_dir_path, n_part):
-    """ split src_file into n parts and stored in dest_dir
+def split_file(file_path, n_part, dir_path=None):
+    """ split src_file into n parts and stored in dir
     """
 
-    src_file_name = os.path.basename(src_file_path)
-    src_file = open(src_file_path, 'r')
-    n_line = 0
-    for _, _ in enumerate(src_file):
-        n_line = n_line + 1
-    # move file pointer to the start
-    src_file.seek(0)
-    print(f'n_line: {n_line}')
+    if dir_path is None:
+        dir_path = os.path.dirname(file_path)
+        if len(dir_path) < 1:
+            dir_path = '.'  # current directory
 
-    n_line_per_part = np.int(np.ceil(n_line/n_part))
+    src_file_name = os.path.basename(file_path)
+
+    part_file_paths = []
+    part_file_all = []
     for part_i in range(n_part):
-        part_file_path = f'{dest_dir_path}/part_{part_i}-{src_file_name}'
+        part_file_path = f'{dir_path}/{src_file_name}.part{part_i}'
+        part_file_paths.append(part_file_path)
         part_file = open(part_file_path, 'x')
-        for line_i in range(n_line_per_part):
-            part_file.write(src_file.readline())
-        part_file.close()
+        part_file_all.append(part_file)
+
+    src_file = open(file_path, 'r')
+    for line_i, line in enumerate(src_file):
+        part_i = np.int(np.mod(line_i, n_part))
+        part_file_all[part_i].write(line)
+        part_file_all[part_i].flush()
 
     src_file.close()
+    for part_file in part_file_all:
+        part_file.close()
+
+    return part_file_paths
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='parse argments')
-    parser.add_argument('--file', dest='src_file_path', required=True,
+    parser.add_argument('--file', dest='file_path', required=True,
                         type=str, help='file be be divided')
-    parser.add_argument('--dir', dest='dest_dir_path', required=True,
-                        type=str, help='where parts are saved')
+    parser.add_argument('--dir', dest='dir_path', type=str, default=None,
+                        help='where parts are saved')
     parser.add_argument('--n', dest='n_part', required=True,
                         type=int, help='')
     args = parser.parse_args()
@@ -41,8 +49,8 @@ def parse_args():
 
 def main():
     args = parse_args()
-    split_file(src_file_path=args.src_file_path,
-               dest_dir_path=args.dest_dir_path,
+    split_file(file_path=args.file_path,
+               dir_path=args.dir_path,
                n_part=args.n_part)
 
 
