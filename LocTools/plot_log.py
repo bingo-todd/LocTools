@@ -13,6 +13,31 @@ def iterable(obj):
     return True
 
 
+def divide_into_bins(x_str_all, n_bin):
+    x_value_all = [np.float(item) for item in x_str_all]
+    sort_index = np.argsort(x_value_all)
+    if n_bin > 1:
+        min_value = x_value_all[sort_index[0]]
+        max_value = x_value_all[sort_index[-1]]
+        bin_width = (max_value-min_value + 1e-10)/n_bin
+        bin_edges = np.zeros((n_bin, 2))
+        x_str_in_bins = [[] for i in range(n_bin)]
+        for bin_i in range(n_bin):
+            left_edge = bin_i*bin_width+min_value
+            right_edge = left_edge + bin_width
+            bin_edges[bin_i] = [left_edge, right_edge]
+            for x_value, x_str in zip(x_value_all, x_str_all):
+                if x_value >= left_edge and x_value < right_edge:
+                    x_str_in_bins[bin_i].append(x_str)
+    elif n_bin == -1:
+        n_bin = len(x_str_all)
+        bin_edges = np.zeros((n_bin, 2))
+        bin_edges[:, 0] = [x_value_all[item] for item in sort_index]
+        bin_edges[:, 1] = bin_edges[:, 0]
+        x_str_in_bins = [[x_str_all[i]] for i in sort_index]
+    return bin_edges, x_str_in_bins
+
+
 def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
              var_name=None, plot_settings=None, plot_bar=True, log_i=0):
     log = file2dict(log_path, numeric=True, repeat_processor='keep')
@@ -23,28 +48,9 @@ def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
         var_name = [f'value_{i}' for i in range(n_field)]
 
     #
-    keys_value = np.asarray([float(key) for key in keys])
-    sort_index = np.argsort(keys_value)
-
-    if n_bin > 1:
-        min_key_value = keys_value[sort_index[0]]
-        max_key_value = keys_value[sort_index[-1]]
-        bin_width = (max_key_value-min_key_value + 1e-10)/n_bin
-        keys_in_bins = [[] for i in range(n_bin)]
-        x = np.zeros(n_bin)
-        for bin_i in range(n_bin):
-            left_edge = bin_i*bin_width+min_key_value
-            right_edge = left_edge + bin_width
-            x[bin_i] = (left_edge+right_edge)/2.
-            for key in keys:
-                key_value = float(key)
-                if key_value >= left_edge and key_value < right_edge:
-                    keys_in_bins[bin_i].append(key)
-    elif n_bin == -1:
-        n_bin = len(keys)
-        x = np.asarray([keys_value[i] for i in sort_index])
-        keys_in_bins = [[keys[i]] for i in sort_index]
-        bin_width = np.min(x[1:] - x[:-1])
+    bin_edges, keys_in_bins = divide_into_bins(keys, n_bin)
+    bin_width = np.min(bin_edges[1:, 0] - bin_edges[:-1, 0])
+    n_bin = bin_edges.shape[0]
 
     if ax is None:
         fig, ax = plt.subplots(1, n_field, tight_layout=True,
@@ -56,16 +62,19 @@ def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
 
     x_shift = bin_width/2/5*log_i
     for field_i in range(n_field):
-        y_mean, y_std = np.zeros(n_bin), np.zeros(n_bin)
+        x, y_mean, y_std = [], [], []
         for bin_i in range(n_bin):
             y_tmp = []
             for key in keys_in_bins[bin_i]:
                 for item in log[key]:
                     y_tmp.append(item[0, field_i])
-            y_mean[bin_i] = np.mean(y_tmp)
-            y_std[bin_i] = np.std(y_tmp)
+            if len(y_tmp) > 0:
+                x.append(np.mean(bin_edges[bin_i]))
+                y_mean.append(np.mean(y_tmp))
+                y_std.append(np.std(y_tmp))
 
-        ax[field_i].errorbar(x+x_shift, y_mean, yerr=y_std/2, **plot_settings)
+        ax[field_i].errorbar(np.asarray(x)+x_shift, y_mean, yerr=y_std,
+                             **plot_settings)
         ax[field_i].set_title(var_name[field_i])
 
     if fig_path is not None:
@@ -81,17 +90,15 @@ def parse_args():
                         type=str, help='path of the input file')
     parser.add_argument('--label', dest='label', nargs='+', type=str,
                         default=None, help='label for each log')
-    parser.add_argument('--bins', dest='n_bin', type=int,
-                        default=-1, help='')
+    parser.add_argument('--bins', dest='n_bin', type=int, default=-1, help='')
     parser.add_argument('--fig-path', dest='fig_path', required=True,
                         type=str, default=None, help='figure path')
-    parser.add_argument('--var-name', dest='var_name', nargs='+',
-                        type=str, default=None,
-                        help='var_name for each value field')
+    parser.add_argument('--var-name', dest='var_name', nargs='+', type=str,
+                        default=None, help='var_name for each value field')
     parser.add_argument('--xlabel', dest='xlabel', type=str, default=None,
                         help='x-axis label')
-    parser.add_argument('--ylim', dest='ylim', nargs='+',
-                        type=float, default=None,
+    parser.add_argument('--ylim', dest='ylim', nargs='+', type=float,
+                        default=None,
                         help='range of y-axis')
     parser.add_argument('--linewidth', dest='linewidth', type=int, default=2,
                         help='')

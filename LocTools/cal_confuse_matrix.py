@@ -42,7 +42,7 @@ def parse_args():
                                      result-path')
     parser.add_argument('--log', dest='log_path', type=str, required=True,
                         help='')
-    parser.add_argument('--result-path', dest='result_path', type=str,
+    parser.add_argument('--npy-path', dest='npy_path', type=str,
                         default=None, help='')
     parser.add_argument('--fig-path', dest='fig_path', type=str, default=None,
                         help='')
@@ -57,11 +57,11 @@ def parse_args():
 def main():
     args = parse_args()
 
-    if args.result_path is None and args.fig_path is None:
+    if args.npy_path is None and args.fig_path is None:
         return None
 
-    if args.result_path is not None and os.path.exists(args.result_path):
-        raise Exception(f'{args.result_path} already exists')
+    if args.npy_path is not None and os.path.exists(args.npy_path):
+        raise Exception(f'{args.npy_path} already exists')
 
     if args.fig_path is not None and os.path.exists(args.fig_path):
         raise Exception(f'{args.fig_path} already exists')
@@ -73,8 +73,8 @@ def main():
         with np.printoptions(precision=2, suppress=True, floatmode='fixed'):
             print(CM)
 
-    if args.result_path is not None:
-        np.save(args.result_path, CM)
+    if args.npy_path is not None:
+        np.save(args.npy_path, CM)
 
     if args.fig_path is not None:
         n_label = CM.shape[0]

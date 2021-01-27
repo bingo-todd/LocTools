@@ -10,29 +10,27 @@ from .combine_files import combine_files
 
 
 def list2str(x):
-    return '_'.join(map(str, x))
-
-
-def convert2list(x):
-    if not isinstance(x, list):
-        return [x]
+    if x is None:
+        return None
     else:
-        return x
+        return '_'.join(map(str, x))
 
 
 def evaluate(azi_gt, azi_est, theta=1):
+    """ calculate CP and RMSE for a pair of azi_gt and azi_est
+    both azi_gt and azi_est can be ndarray
+    """
     n_sample, n_src = azi_est.shape
-    if n_src != azi_gt.shape[0]:
-        raise Exception('azi_gt {azi_gt.shape} while azi_est {azi_est.shape}')
     cp = 0
     rmse = 0
-    for sample_i in range(n_sample):
-        for src_i in range(n_src):
-            diff_tmp = np.abs(azi_est[sample_i, :]-azi_gt[src_i])
-            min_diff = np.min(diff_tmp)
-            equality = min_diff < theta
-            cp = cp + np.int(equality)
-            rmse = rmse + min_diff**2
+
+    for src_i in range(n_src):
+        diff_tmp = np.abs(
+            azi_est[:, src_i, np.newaxis]-azi_gt[np.newaxis, :])
+        min_diff = np.min(diff_tmp, axis=1)
+        equality = min_diff < theta
+        cp = cp + np.sum(equality.astype(np.int))
+        rmse = rmse + np.sum(min_diff**2)
 
     n_est = n_sample * n_src  # number of location estimations, 1 for 1 source
     cp = cp/n_est
@@ -60,61 +58,94 @@ def get_n_max_pos(x, n):
     # return sort_index[x]
 
 
-def load_loc_log(loc_log_path, vad_log_path, chunksize, azi_pos, n_src,
-                 result_dir=None, keep_sample_num=False, print_result=False):
+def load_loc_log(loc_log_path, vad_log_path, chunksize, n_src,
+                 azi_pos_all=None, azi_gt_log_path=None, result_dir=None,
+                 keep_sample_num=False, print_result=False):
     """load loc log
+    Args:
+        loc_log_path:
+        vad_log_path:
+        chunksize:
+        n_src: specifiy how many source position should be estimated from each
+            frame
+        azi_pos_all: specify which components in file names are azimuth labels
+        azi_gt_log_path: log file containing azimuth labels of file in loc_log
+        result_dir: where to store result files
+        keep_sample_num: where to padd in the front of model outputs to ensure
+            there are azimuth estimations for each frame no matter how much the
+            chunksize is specified
+        print_result: print result to the terminal
     """
-    azi_pos_all = convert2list(azi_pos)  # allow multiple azi grandtruth
 
-    # check if result_log exists
+    # prepare the directory
     log_name = os.path.basename(loc_log_path)
     if result_dir is None:
         result_dir = os.path.dirname(os.path.dirname(loc_log_path))
-    statistic_dir = (f'{result_dir}/'
-                     + '-'.join((f'chunksize_{chunksize}',
-                                 f'azipos_{list2str(azi_pos_all)}',
-                                 f'nsrc_{n_src}')))
+    result_dir = (f'{result_dir}/'
+                  + '-'.join((f'chunksize_{chunksize}',
+                              f'azipos_{list2str(azi_pos_all)}',
+                              f'nsrc_{n_src}')))
     if vad_log_path is not None:
-        statistic_dir = statistic_dir + '-vad'
-    os.makedirs(statistic_dir, exist_ok=True)
+        result_dir = result_dir + '-vad'
+    os.makedirs(result_dir, exist_ok=True)
 
-    performace_log_path = f'{statistic_dir}/{log_name}'
+    # log for CP and RMSE
+    performace_log_path = f'{result_dir}/{log_name}'
+    # r
+    os.makedirs(f'{result_dir}/log', exist_ok=True)
+    azi_est_log_path = f'{result_dir}/log/{log_name}'
+
     if os.path.exists(performace_log_path):
-        raise FileExistsError(performace_log_path)
+        raise Exception(f'{performace_log_path} already exists')
+    if os.path.exists(azi_est_log_path):
+        raise Exception(f'{azi_est_log_path} already exists')
 
-    # localization result for each entry in loc_log
-    os.makedirs(f'{statistic_dir}/log', exist_ok=True)
-    result_log_path = f'{statistic_dir}/log/{log_name}'
-    if os.path.exists(result_log_path):
-        raise FileExistsError(result_log_path)
-
+    # load vad log if vad_log_path is specified
     if vad_log_path is None:
         vad_log = None
     else:
         vad_log = file2dict(vad_log_path, numeric=True)
 
-    result_log = {}
-    performance_log = {}
+    # get azi_gt_log either from feat_path or azi_gt_log_path
+    azi_gt_log = {}
+    if azi_pos_all is not None:
+        loc_logger = open(loc_log_path, 'r')
+        for line_i, line in enumerate(loc_logger):
+            feat_path, _ = line.split(':')
+            feat_name = os.path.basename(feat_path).split('.')[0]
+            attrs = [float(item) for item in feat_name.split('_')]
+            azi_gt_log[feat_path] = np.asarray([attrs[i] for i in azi_pos_all])
+        loc_logger.close()
+    elif azi_gt_log_path is not None:
+        azi_gt_log = file2dict(azi_gt_log_path, numeric=True, squeeze=True)
+    else:
+        raise Exception('either azi_pos_all or azi_gt_log_path is specified')
 
+    azi_est_log = {}
+    performance_log = {}
     loc_logger = open(loc_log_path, 'r')
     for line_i, line in enumerate(loc_logger):
         feat_path, output = line.split(':')
+        try:
+            output = np.asarray([[np.float32(item) for item in row.split()]
+                                 for row in output.split(';')],
+                                dtype=np.float32)
+        except Exception as e:
+            print(f'line {line_i}')
+            raise Exception(e)
 
-        # get the grandtruth from feat_path
-        feat_name = os.path.basename(feat_path).split('.')[0]
-        attrs = [float(item) for item in feat_name.split('_')]
-        azi_gt = np.asarray([attrs[i] for i in azi_pos_all])
-
-        output = np.asarray([[np.float32(item) for item in row.split()]
-                             for row in output.split(';')], dtype=np.float32)
         if chunksize > 1:
             if keep_sample_num:
                 # padd chunksize-1 in the begining, as result, output will have
                 # the same shape after framing and averaging
                 output = np.pad(output, ((chunksize-1, 0), (0, 0)))
-            output = np.mean(
-                frame_data(output, frame_len=chunksize, frame_shift=1),
-                axis=1)
+            if output.shape[0] <= chunksize:
+                raise Exception('too less samples for a chunk')
+                # output = np.expand_dims(np.mean(output, axis=0), axis=0)
+            else:
+                output = np.mean(
+                    frame_data(output, frame_len=chunksize, frame_shift=1),
+                    axis=1)
         else:  # chunksize == 1
             if vad_log is not None:
                 n_sample = min((vad_log[feat_path].shape[0], output.shape[0]))
@@ -122,15 +153,15 @@ def load_loc_log(loc_log_path, vad_log_path, chunksize, azi_pos, n_src,
                 output = output[-n_sample:][np.where(vad == 1)[0]]
 
         azi_est = get_n_max_pos(output, n_src)
-        result_log[feat_path] = azi_est
+        azi_gt = azi_gt_log[feat_path]
+        azi_est_log[feat_path] = azi_est
         cp, rmse = evaluate(azi_gt, azi_est)
         performance_log[feat_path] = [[cp, rmse]]
-
     loc_logger.close()
 
     # write to file
     dict2file(performance_log, performace_log_path, item_format='.4f')
-    dict2file(result_log, result_log_path, item_format='2d')
+    dict2file(azi_est_log, azi_est_log_path, item_format='2d')
 
     # average over all feat files
     cp_mean, rmse_mean = np.mean(
@@ -143,7 +174,7 @@ def load_loc_log(loc_log_path, vad_log_path, chunksize, azi_pos, n_src,
     with open(performace_log_path, 'a') as statistic_logger:
         statistic_logger.write('# average result\n')
         statistic_logger.write(f'# cp:{cp_mean:.4e} rmse:{rmse_mean:.4e}\n')
-    return statistic_dir
+    return result_dir
 
 
 def parse_arg():
@@ -154,10 +185,12 @@ def parse_arg():
                         default=None, help='vad log path')
     parser.add_argument('--result-dir', dest='result_dir', type=str,
                         default=None, help='where to save result files')
+    parser.add_argument('--azi-pos', dest='azi_pos', type=int, nargs='+',
+                        default=None)
+    parser.add_argument('--azi-gt-log', dest='azi_gt_log_path', type=str,
+                        default=None)
     parser.add_argument('--chunksize', dest='chunksize', required=True,
                         type=int, help='sample number of a chunk')
-    parser.add_argument('--azi-pos', dest='azi_pos', required=True, type=int,
-                        nargs='+', default=0)
     parser.add_argument('--n-src', dest='n_src', required=True, type=int,
                         default=1)
     parser.add_argument('--keep-sample-num', dest='keep_sample_num', type=str,
@@ -180,8 +213,8 @@ def main():
         tasks = []
         for part_loc_log_path in part_loc_log_paths:
             tasks.append([part_loc_log_path, args.vad_log_path, args.chunksize,
-                          args.azi_pos, args.n_src, args.result_dir,
-                          args.keep_sample_num == 'true',
+                          args.azi_pos, args.azi_gt_log_path, args.n_src,
+                          args.result_dir, args.keep_sample_num == 'true',
                           args.print_result == 'true'])
         statistic_dir_paths = easy_parallel(load_loc_log, tasks, len(tasks))
         # statistic_dir_paths = []
@@ -218,7 +251,8 @@ def main():
                      vad_log_path=args.vad_log_path,
                      chunksize=args.chunksize,
                      n_src=args.n_src,
-                     azi_pos=args.azi_pos,
+                     azi_pos_all=args.azi_pos,
+                     azi_gt_log_path=args.azi_gt_log_path,
                      result_dir=args.result_dir,
                      keep_sample_num=args.keep_sample_num == 'true',
                      print_result=args.print_result == 'true')
