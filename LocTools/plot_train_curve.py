@@ -6,6 +6,8 @@ import argparse
 def tolist(x):
     if not isinstance(x, list):
         return [x]
+    elif x is None:
+        return [None]
     else:
         return x
 
@@ -24,6 +26,7 @@ def plot_train_curve(train_record_path, label, fig_path,
         loss_record = loss_record[:n_epoch+1]
         ax.plot(loss_record, label=label)
 
+    ax.set_xlabel('epoch')
     ax.set_ylabel(var_name)
     ax.legend()
     fig.savefig(fig_path, dpi=dpi)
@@ -35,7 +38,7 @@ def parse_args():
     parser.add_argument('--train-record', dest='train_record_path', type=str,
                         required=True, nargs='+',
                         help='train record path')
-    parser.add_argument('--label', dest='label', type=str, required=True,
+    parser.add_argument('--label', dest='label', type=str, default=None,
                         nargs='+', help='label for each train record')
     parser.add_argument('--var-name', dest='var_name', type=str,
                         default='loss_record', help='')

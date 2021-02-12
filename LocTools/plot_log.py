@@ -39,7 +39,8 @@ def divide_into_bins(x_str_all, n_bin):
 
 
 def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
-             var_name=None, plot_settings=None, plot_bar=True, log_i=0):
+             var_name=None, plot_settings=None, plot_bar=True, smooth=False,
+             log_i=0):
     log = file2dict(log_path, numeric=True, repeat_processor='keep')
     keys = list(log.keys())
 
@@ -73,8 +74,18 @@ def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
                 y_mean.append(np.mean(y_tmp))
                 y_std.append(np.std(y_tmp))
 
-        ax[field_i].errorbar(np.asarray(x)+x_shift, y_mean, yerr=y_std,
-                             **plot_settings)
+        if smooth:
+            ax[field_i].errorbar(np.asarray(x)+x_shift, y_mean, yerr=y_std,
+                                 alpha=0.6, **plot_settings)
+            #
+            coefs_len = np.max((1, int(n_bin/10)))
+            coefs = np.ones(coefs_len)/coefs_len
+            y_mean_smooth = np.convolve(y_mean, coefs, mode='same')
+            ax[field_i].plot(np.asarray(x)+x_shift, y_mean_smooth, linewidth=2)
+        else:
+            ax[field_i].errorbar(np.asarray(x)+x_shift, y_mean, yerr=y_std,
+                                 **plot_settings)
+
         ax[field_i].set_title(var_name[field_i])
 
     if fig_path is not None:
@@ -91,8 +102,6 @@ def parse_args():
     parser.add_argument('--label', dest='label', nargs='+', type=str,
                         default=None, help='label for each log')
     parser.add_argument('--bins', dest='n_bin', type=int, default=-1, help='')
-    parser.add_argument('--fig-path', dest='fig_path', required=True,
-                        type=str, default=None, help='figure path')
     parser.add_argument('--var-name', dest='var_name', nargs='+', type=str,
                         default=None, help='var_name for each value field')
     parser.add_argument('--xlabel', dest='xlabel', type=str, default=None,
@@ -102,8 +111,15 @@ def parse_args():
                         help='range of y-axis')
     parser.add_argument('--linewidth', dest='linewidth', type=int, default=2,
                         help='')
+    parser.add_argument('--smooth', dest='smooth', type=str, default='false',
+                        choices=['true', 'false'], help='')
     parser.add_argument('--dpi', dest='dpi', type=int, default=100,
                         help='dpi if figure')
+    parser.add_argument('--interactive', dest='interactive', type=str,
+                        default='false', choices=['true', 'false'],
+                        help='figure path')
+    parser.add_argument('--fig-path', dest='fig_path', type=str, default=None,
+                        help='figure path')
     args = parser.parse_args()
     return args
 
@@ -118,11 +134,13 @@ def main():
         label = args.label
 
     fig, ax = plot_log(log_path=args.log_path[0],
-                       n_bin=args.n_bin,
-                       var_name=args.var_name,
                        plot_settings={'label': label[0],
                                       'color': colors[0],
-                                      'linewidth': args.linewidth})
+                                      'linewidth': args.linewidth},
+                       n_bin=args.n_bin,
+                       var_name=args.var_name,
+                       smooth=args.smooth == 'true')
+
     for log_i in range(1, n_log):
         plot_log(log_path=args.log_path[log_i],
                  plot_settings={'label': args.label[log_i],
@@ -132,6 +150,7 @@ def main():
                  var_name=args.var_name,
                  ax=ax,
                  plot_bar=False,
+                 smooth=args.smooth == 'true',
                  log_i=log_i)
 
     for ax_i in range(len(ax)):
@@ -142,8 +161,12 @@ def main():
 
     ax[-1].legend()
 
-    print(f'fig is saved to {args.fig_path}')
-    fig.savefig(args.fig_path, dpi=args.dpi)
+    if args.fig_path is not None:
+        print(f'fig is saved to {args.fig_path}')
+        fig.savefig(args.fig_path, dpi=args.dpi)
+
+    if args.interactive == 'true':
+        plt.show()
 
 
 if __name__ == '__main__':
