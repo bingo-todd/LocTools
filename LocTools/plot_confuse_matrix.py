@@ -79,7 +79,7 @@ def main():
     if args.fig_path is not None:
         n_label = CM.shape[0]
         if n_label < 50:
-            fig, ax = plot_tools.plot_confuse_matrix(CM)
+            fig, ax = plot_tools.plot_matrix(CM, show_value=True)
         else:
             fig, ax = plt.subplots(1, 1)
             plt.imshow(CM, cmap='Blues', aspect='auto')
