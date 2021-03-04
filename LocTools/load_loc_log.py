@@ -124,7 +124,7 @@ def load_loc_log(loc_log_path, vad_log_path, chunksize, n_src,
 
     azi_est_log = {}
     performance_log = {}
-    frame_num_log = {}
+    sample_num_log = {}
     loc_logger = open(loc_log_path, 'r')
     for line_i, line in enumerate(loc_logger):
         feat_path, output = line.split(':')
@@ -164,8 +164,8 @@ def load_loc_log(loc_log_path, vad_log_path, chunksize, n_src,
         #
         azi_est = azi_est[np.logical_not(invalid_chunk_flag), :]
         cp, rmse = cal_statistic(azi_gt_log[feat_path], azi_est)
-        performance_log[feat_path] = [[cp, rmse]]
-        frame_num_log[feat_path] = azi_est.shape[0]
+        performance_log[feat_path] = [cp, rmse]
+        sample_num_log[feat_path] = azi_est.shape[0]
     loc_logger.close()
 
     # write to file
@@ -173,14 +173,14 @@ def load_loc_log(loc_log_path, vad_log_path, chunksize, n_src,
     dict2file(azi_est_log, azi_est_log_path, item_format='2d')
 
     # average over all feat files
-    cp_mean, rmse_mean, frame_num = 0, 0
+    cp_mean, rmse_mean, sample_num = 0, 0, 0
     for feat_path in performance_log.keys():
-        frame_num_tmp = frame_num_log[feat_path]
+        sample_num_tmp = sample_num_log[feat_path]
         cp_tmp, rmse_tmp = performance_log[feat_path]
-        cp_mean = cp_mean + frame_num_tmp*cp_tmp
-        rmse_mean = rmse_mean + frame_num_tmp*rmse_tmp
-        frame_num = frame_num + frame_num_tmp
-    cp_mean, rmse_mean = cp_mean/frame_num, rmse_mean/frame_num
+        cp_mean = cp_mean + sample_num_tmp*cp_tmp
+        rmse_mean = rmse_mean + sample_num_tmp*rmse_tmp
+        sample_num = sample_num + sample_num_tmp
+    cp_mean, rmse_mean = cp_mean/sample_num, rmse_mean/sample_num
 
     with open(performace_log_path, 'a') as statistic_logger:
         statistic_logger.write('# average result\n')
