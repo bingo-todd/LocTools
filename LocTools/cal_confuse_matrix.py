@@ -7,7 +7,12 @@ from BasicTools.parse_file import file2dict
 
 
 def cal_confuse_matrix(log_path):
-
+    """ calculate the confuse matrix of given log file.
+    Each line in log, corresponding to one input file, should be the follow format,
+    "label: estimation1; estimation2; ..."
+    Args:
+        log_path: file path of log.
+    """
     max_label = 1  # the confuse matrix is initialized as 1x1
     CM = np.zeros((max_label+1, max_label+1), dtype=np.float32)
 
