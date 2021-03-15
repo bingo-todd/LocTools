@@ -105,8 +105,12 @@ def load_loc_log(loc_log_path, vad_log_path, chunksize, n_src,
 
     # log for CP and RMSE
     performace_log_path = f'{result_dir}/{log_name}'
+    if os.path.exists(performace_log_path):
+        raise FileExistsError(performace_log_path)
     # log for estimation result
     azi_est_log_path = f'{result_dir}/log/{log_name}'
+    if os.path.exists(azi_est_log_path):
+        raise FileExistsError(azi_est_log_path)
 
     # load vad log if vad_log_path is specified
     if vad_log_path is None:
@@ -178,9 +182,9 @@ def load_loc_log(loc_log_path, vad_log_path, chunksize, n_src,
         sample_num_tmp = sample_num_log[feat_path]
         cp_tmp, rmse_tmp = performance_log[feat_path]
         cp_mean = cp_mean + sample_num_tmp*cp_tmp
-        rmse_mean = rmse_mean + sample_num_tmp*rmse_tmp
+        rmse_mean = rmse_mean + sample_num_tmp*rmse_tmp**2
         sample_num = sample_num + sample_num_tmp
-    cp_mean, rmse_mean = cp_mean/sample_num, rmse_mean/sample_num
+    cp_mean, rmse_mean = cp_mean/sample_num, np.sqrt(rmse_mean/sample_num)
 
     with open(performace_log_path, 'a') as statistic_logger:
         statistic_logger.write('# average result\n')

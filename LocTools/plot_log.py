@@ -3,6 +3,7 @@ import seaborn
 import argparse
 import matplotlib.pyplot as plt
 from BasicTools.parse_file import file2dict
+from BasicTools import wav_tools
 
 
 def iterable(obj):
@@ -14,21 +15,24 @@ def iterable(obj):
 
 
 def divide_into_bins(x_str_all, n_bin):
-    x_value_all = [np.float(item) for item in x_str_all]
+    try:
+        x_value_all = [np.float(item) for item in x_str_all]
+    except Exception:
+        x_value_all = np.arange(len(x_str_all))
     sort_index = np.argsort(x_value_all)
+
     if n_bin > 1:
         min_value = x_value_all[sort_index[0]]
         max_value = x_value_all[sort_index[-1]]
         bin_width = (max_value-min_value + 1e-10)/n_bin
-        bin_edges = np.zeros((n_bin, 2))
+        bin_edges = np.zeros(n_bin, 2)
+        bin_edges[:, 0] = np.arange(n_bin)*bin_width
+        bin_edges[:, 1] = bin_edges[:, 0] + bin_width
+
         x_str_in_bins = [[] for i in range(n_bin)]
-        for bin_i in range(n_bin):
-            left_edge = bin_i*bin_width+min_value
-            right_edge = left_edge + bin_width
-            bin_edges[bin_i] = [left_edge, right_edge]
-            for x_value, x_str in zip(x_value_all, x_str_all):
-                if x_value >= left_edge and x_value < right_edge:
-                    x_str_in_bins[bin_i].append(x_str)
+        for x_value, x_str in zip(x_value_all, x_str_all):
+            bin_i = np.nonzero(x_value >= bin_edges[:, 0])[0][0]
+            x_str_in_bins[bin_i].append(x_str)
     elif n_bin == -1:
         n_bin = len(x_str_all)
         bin_edges = np.zeros((n_bin, 2))
@@ -78,10 +82,17 @@ def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
             ax[field_i].errorbar(np.asarray(x)+x_shift, y_mean, yerr=y_std,
                                  alpha=0.6, **plot_settings)
             #
-            coefs_len = np.max((1, int(n_bin/10)))
-            coefs = np.ones(coefs_len)/coefs_len
-            y_mean_smooth = np.convolve(y_mean, coefs, mode='same')
-            ax[field_i].plot(np.asarray(x)+x_shift, y_mean_smooth, linewidth=2)
+            win_len = np.max((1, int(n_bin/50)))
+            half_win_len = np.int(np.floor((win_len/2)))
+            y_mean_smoothed = np.mean(
+                wav_tools.frame_data(y_mean, frame_len=win_len, frame_shift=1),
+                axis=1)
+            if half_win_len == 0:
+                x_tmp = x
+            else:
+                x_tmp = x[half_win_len:half_win_len+y_mean_smoothed.shape[0]]
+            ax[field_i].plot(np.asarray(x_tmp)+x_shift, y_mean_smoothed,
+                             linewidth=2)
         else:
             ax[field_i].errorbar(np.asarray(x)+x_shift, y_mean, yerr=y_std,
                                  **plot_settings)
