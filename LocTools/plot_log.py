@@ -43,8 +43,8 @@ def divide_into_bins(x_str_all, n_bin):
 
 
 def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
-             var_name=None, plot_settings=None, plot_bar=True, smooth=False,
-             log_i=0):
+             var_name=None, color=None, label=None, plot_bar=True,
+             smooth=False, log_i=0):
     log = file2dict(log_path, numeric=True, repeat_processor='keep')
     keys = list(log.keys())
 
@@ -78,9 +78,16 @@ def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
                 y_mean.append(np.mean(y_tmp))
                 y_std.append(np.std(y_tmp))
 
+        y_mean = np.asarray(y_mean)
+        y_std = np.asarray(y_std)
+
         if smooth:
-            ax[field_i].errorbar(np.asarray(x)+x_shift, y_mean, yerr=y_std,
-                                 alpha=0.6, **plot_settings)
+            # ax[field_i].errorbar(np.asarray(x)+x_shift, y_mean, yerr=y_std,
+            #                      alpha=0.6, **plot_settings)
+            ax[field_i].plot(x, y_mean, color=color, label=label)
+            ax[field_i].fill_between(x, y_mean-y_std/2, y_mean+y_std/2,
+                                     alpha=0.3, color=color)
+
             #
             win_len = np.max((1, int(n_bin/50)))
             half_win_len = np.int(np.floor((win_len/2)))
@@ -94,8 +101,11 @@ def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
             ax[field_i].plot(np.asarray(x_tmp)+x_shift, y_mean_smoothed,
                              linewidth=2)
         else:
-            ax[field_i].errorbar(np.asarray(x)+x_shift, y_mean, yerr=y_std,
-                                 **plot_settings)
+            # ax[field_i].errorbar(np.asarray(x)+x_shift, y_mean, yerr=y_std,
+            #                      **plot_settings)
+            ax[field_i].plot(x, y_mean, color=color, label=label)
+            ax[field_i].fill_between(x, y_mean-y_std/2, y_mean+y_std/2,
+                                     alpha=0.3, color=color)
 
         ax[field_i].set_title(var_name[field_i])
 
@@ -145,18 +155,16 @@ def main():
         label = args.label
 
     fig, ax = plot_log(log_path=args.log_path[0],
-                       plot_settings={'label': label[0],
-                                      'color': colors[0],
-                                      'linewidth': args.linewidth},
+                       label=label[0],
+                       color=colors[0],
                        n_bin=args.n_bin,
                        var_name=args.var_name,
                        smooth=args.smooth == 'true')
 
     for log_i in range(1, n_log):
         plot_log(log_path=args.log_path[log_i],
-                 plot_settings={'label': args.label[log_i],
-                                'color': colors[log_i],
-                                'linewidth': args.linewidth},
+                 label=args.label[log_i],
+                 color=colors[log_i],
                  n_bin=args.n_bin,
                  var_name=args.var_name,
                  ax=ax,

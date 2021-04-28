@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 from BasicTools.parse_file import file2dict
 
 
-def plot_hist(log_path, n_bin, var_i=0, file_name_required=None, x_label=None,
-              fig_path=None, interactive=False):
+def plot_hist(log_path, n_bin, xlim=None, var_i=0, file_name_required=None,
+              x_label=None, fig_path=None, interactive=False):
     log = file2dict(log_path, numeric=True)
     values = None
     if file_name_required is None:
@@ -32,8 +32,10 @@ def plot_hist(log_path, n_bin, var_i=0, file_name_required=None, x_label=None,
         else:
             bin_width = 1
     else:  # statistic the number of values within each bin
-        max_value = np.max(values)
-        min_value = np.min(values)
+        if xlim is not None:
+            min_value, max_value = xlim
+        else:
+            min_value, max_value = np.max(values), np.min(values)
         bin_edges = np.linspace(min_value, max_value, n_bin+1)
         bin_width = bin_edges[1] - bin_edges[0]
 
@@ -50,6 +52,7 @@ def plot_hist(log_path, n_bin, var_i=0, file_name_required=None, x_label=None,
 
     if fig_path is not None:
         fig.savefig(fig_path)
+        print(f'fig is saved to {fig_path}')
 
     if interactive:
         plt.show()
@@ -60,6 +63,8 @@ def parse_args():
     parser.add_argument('--log', dest='log_path', required=True, type=str,
                         help='path of the input file')
     parser.add_argument('--n-bin', dest='n_bin', required=True, type=int,
+                        help='')
+    parser.add_argument('--xlim', dest='xlim', type=float, nargs=2,
                         help='')
     parser.add_argument('--file-name', dest='file_name_required', type=str,
                         default=None, help='')
@@ -78,6 +83,7 @@ def main():
 
     plot_hist(log_path=args.log_path,
               n_bin=args.n_bin,
+              xlim=args.xlim,
               file_name_required=args.file_name_required,
               x_label=args.x_label,
               fig_path=args.fig_path,
