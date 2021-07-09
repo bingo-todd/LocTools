@@ -44,13 +44,13 @@ def divide_into_bins(x_str_all, n_bin):
 
 def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
              var_name=None, color=None, label=None, plot_bar=True,
-             smooth=False, log_i=0):
+             linewidth=2, smooth=False, log_i=0):
     log = file2dict(log_path, numeric=True, repeat_processor='keep')
     keys = list(log.keys())
 
     n_field = log[keys[0]][0].shape[1]  # n_repeat * n_row * n_col
     if var_name is None:
-        var_name = [f'value_{i}' for i in range(n_field)]
+        var_name = [None for i in range(n_field)]
 
     #
     bin_edges, keys_in_bins = divide_into_bins(keys, n_bin)
@@ -84,10 +84,14 @@ def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
         if smooth:
             # ax[field_i].errorbar(np.asarray(x)+x_shift, y_mean, yerr=y_std,
             #                      alpha=0.6, **plot_settings)
-            ax[field_i].plot(x, y_mean, color=color, label=label)
-            ax[field_i].fill_between(x, y_mean-y_std/2, y_mean+y_std/2,
-                                     alpha=0.3, color=color)
+            line = ax[field_i].plot(x, y_mean, color=color, label=label,
+                                    linewidth=linewidth)
+            line_color = line[0].get_color()
 
+            y_low = y_mean-y_std/2
+            y_high = y_mean+y_std/2
+            ax[field_i].fill_between(x, y_low, y_high,
+                                     alpha=0.3, facecolor=line_color)
             #
             win_len = np.max((1, int(n_bin/50)))
             half_win_len = np.int(np.floor((win_len/2)))
@@ -99,13 +103,18 @@ def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
             else:
                 x_tmp = x[half_win_len:half_win_len+y_mean_smoothed.shape[0]]
             ax[field_i].plot(np.asarray(x_tmp)+x_shift, y_mean_smoothed,
-                             linewidth=2)
+                             linewidth=linewidth)
         else:
             # ax[field_i].errorbar(np.asarray(x)+x_shift, y_mean, yerr=y_std,
             #                      **plot_settings)
-            ax[field_i].plot(x, y_mean, color=color, label=label)
-            ax[field_i].fill_between(x, y_mean-y_std/2, y_mean+y_std/2,
-                                     alpha=0.3, color=color)
+            line = ax[field_i].plot(x, y_mean, color=color, label=label,
+                                    linewidth=linewidth)
+            line_color = line[0].get_color()
+
+            y_low = y_mean-y_std/2
+            y_high = y_mean+y_std/2
+            ax[field_i].fill_between(x, y_low, y_high,
+                                     alpha=0.3, facecolor=line_color)
 
         ax[field_i].set_title(var_name[field_i])
 
@@ -128,8 +137,7 @@ def parse_args():
     parser.add_argument('--xlabel', dest='xlabel', type=str, default=None,
                         help='x-axis label')
     parser.add_argument('--ylim', dest='ylim', nargs='+', type=float,
-                        default=None,
-                        help='range of y-axis')
+                        default=None, help='range of y-axis')
     parser.add_argument('--linewidth', dest='linewidth', type=int, default=2,
                         help='')
     parser.add_argument('--smooth', dest='smooth', type=str, default='false',
@@ -159,6 +167,7 @@ def main():
                        color=colors[0],
                        n_bin=args.n_bin,
                        var_name=args.var_name,
+                       linewidth=args.linewidth,
                        smooth=args.smooth == 'true')
 
     for log_i in range(1, n_log):
@@ -169,6 +178,7 @@ def main():
                  var_name=args.var_name,
                  ax=ax,
                  plot_bar=False,
+                 linewidth=args.linewidth,
                  smooth=args.smooth == 'true',
                  log_i=log_i)
 

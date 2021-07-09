@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from BasicTools.parse_file import file2dict
 
 
-def plot_hist(log_path, n_bin, xlim=None, var_i=0, file_name_required=None,
+def plot_hist(log_path, n_bin=-1, xlim=None, var_i=0, file_name_required=None,
               x_label=None, fig_path=None, interactive=False):
     log = file2dict(log_path, numeric=True)
     values = None
@@ -62,7 +62,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='parse argments')
     parser.add_argument('--log', dest='log_path', required=True, type=str,
                         help='path of the input file')
-    parser.add_argument('--n-bin', dest='n_bin', required=True, type=int,
+    parser.add_argument('--n-bin', dest='n_bin', type=int, default=-1,
                         help='')
     parser.add_argument('--xlim', dest='xlim', type=float, nargs=2,
                         help='')

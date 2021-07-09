@@ -5,7 +5,7 @@ from BasicTools import parse_file
 from LocTools.add_log import add_log
 
 
-def merge_logs(log0_path, log1_path, result_log_path, repeat_processor):
+def merge_logs(log0_path, log1_path, result_log_path, repeat_processor='none'):
     """
     Args:
         log0_path, log1_path: the path of logs to be merged

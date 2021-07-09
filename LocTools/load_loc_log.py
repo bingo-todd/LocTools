@@ -178,9 +178,9 @@ def load_loc_log(loc_log_path, chunksize, n_src, vad_log_path=None,
         azi_est_log[feat_path] = azi_est
         #
         azi_est = azi_est[np.logical_not(invalid_chunk_flags), :]
-        cp, rmse = cal_statistic(azi_gt_log[feat_path], azi_est,
-                                 circule, n_azi)
-        statistic_log[feat_path] = [cp, rmse]
+        cp, rmse = cal_statistic(
+            azi_gt_log[feat_path], azi_est, circule, n_azi)
+        statistic_log[feat_path] = [[cp, rmse]]
         sample_num_log[feat_path] = azi_est.shape[0]
     loc_logger.close()
 
@@ -192,7 +192,7 @@ def load_loc_log(loc_log_path, chunksize, n_src, vad_log_path=None,
     cp_mean, rmse_mean, sample_num = 0, 0, 0
     for feat_path in statistic_log.keys():
         sample_num_tmp = sample_num_log[feat_path]
-        cp_tmp, rmse_tmp = statistic_log[feat_path]
+        cp_tmp, rmse_tmp = statistic_log[feat_path][0]
         cp_mean = cp_mean + sample_num_tmp*cp_tmp
         rmse_mean = rmse_mean + sample_num_tmp*rmse_tmp**2
         sample_num = sample_num + sample_num_tmp
