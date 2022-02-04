@@ -4,6 +4,7 @@ import argparse
 import matplotlib.pyplot as plt
 from BasicTools.parse_file import file2dict
 from BasicTools import wav_tools
+from BasicTools import plot_tools
 
 
 def iterable(obj):
@@ -44,7 +45,7 @@ def divide_into_bins(x_str_all, n_bin):
 
 def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
              var_name=None, color=None, label=None, plot_bar=True,
-             linewidth=2, smooth=False, log_i=0):
+             linewidth=2, smooth=False, log_i=0, return_data=False):
     log = file2dict(log_path, numeric=True, repeat_processor='keep')
     keys = list(log.keys())
 
@@ -58,14 +59,14 @@ def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
     n_bin = bin_edges.shape[0]
 
     if ax is None:
-        fig, ax = plt.subplots(1, n_field, tight_layout=True,
-                               figsize=[4+2*n_field, 4])
+        fig, ax = plot_tools.subplots(1, n_field)
     else:
         fig = None
     if not iterable(ax):
         ax = [ax]
 
     x_shift = bin_width/2/5*log_i
+    y_mean_all = []
     for field_i in range(n_field):
         x, y_mean, y_std = [], [], []
         for bin_i in range(n_bin):
@@ -80,6 +81,8 @@ def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
 
         y_mean = np.asarray(y_mean)
         y_std = np.asarray(y_std)
+
+        y_mean_all.append(y_mean)
 
         if smooth:
             # ax[field_i].errorbar(np.asarray(x)+x_shift, y_mean, yerr=y_std,
@@ -122,7 +125,10 @@ def plot_log(log_path, key=None, n_bin=-1, fig_path=None, ax=None,
         print(f'fig is saved to {fig_path}')
         fig.savefig(fig_path)
 
-    return fig, ax
+    if return_data:
+        return fig, ax, y_mean_all
+    else:
+       return fig, ax
 
 
 def parse_args():
@@ -136,6 +142,8 @@ def parse_args():
                         default=None, help='var_name for each value field')
     parser.add_argument('--xlabel', dest='xlabel', type=str, default=None,
                         help='x-axis label')
+    parser.add_argument('--xlim', dest='xlim', nargs='+', type=float,
+                        default=None, help='range of x-axis')
     parser.add_argument('--ylim', dest='ylim', nargs='+', type=float,
                         default=None, help='range of y-axis')
     parser.add_argument('--linewidth', dest='linewidth', type=int, default=2,
@@ -187,6 +195,9 @@ def main():
 
         if args.ylim is not None:
             ax[ax_i].set_ylim([args.ylim[ax_i*2], args.ylim[ax_i*2+1]])
+
+        if args.xlim is not None:
+            ax[ax_i].set_xlim([args.xlim[ax_i*2], args.xlim[ax_i*2+1]])
 
     ax[-1].legend()
 

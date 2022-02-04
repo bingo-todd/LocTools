@@ -60,7 +60,14 @@ def get_azi_gt_from_name(loc_log_path, azi_pos_all):
     for line_i, line in enumerate(loc_logger):
         feat_path, _ = line.split(':')
         feat_name = os.path.basename(feat_path).split('.')[0]
-        attrs = [float(item) for item in feat_name.split('_')]
+        attrs = []
+        for item in feat_name.split('_'):
+            try:
+                item_float = float(item)
+                attrs.append(item_float)
+            except Exception:
+                attrs.append(None)
+                continue
         azi_gt_log[feat_path] = np.asarray([attrs[i] for i in azi_pos_all])
     loc_logger.close()
     return azi_gt_log
@@ -157,7 +164,7 @@ def load_loc_log(loc_log_path, chunksize, n_src, vad_log_path=None,
         # get vad
         if vad_log is not None:
             try:
-                vad = vad_log[feat_path][-n_frame]
+                vad = vad_log[feat_path][-n_frame:]
             except Exception as e:
                 print(feat_path)
                 raise Exception(e)
@@ -167,8 +174,8 @@ def load_loc_log(loc_log_path, chunksize, n_src, vad_log_path=None,
         if chunksize > 1 and keep_sample_num:
             y = np.pad(y, ((chunksize-1, 0), (0, 0)))
         # make azimuth decision
-        azi_est, invalid_flags = make_azi_decision(y, vad, none_label,
-                                                   chunksize, n_src)
+        azi_est, invalid_flags = make_azi_decision(
+            y, vad, none_label, chunksize, n_src)
         # set azimuth estimation to -1 if it has too many invalid frames
         invalid_frame_num = np.sum(
             frame_data(invalid_flags, frame_len=chunksize, frame_shift=1),

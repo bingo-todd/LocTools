@@ -27,7 +27,7 @@ def plot_result_eg(log_paths, file_name, titles=None, ax_labels=None,
                    dpi=100, transparent=False, x_starts=None, fig_path=None):
 
     if titles is None:
-        titles = [os.path.basename(log_path) for log_path in log_paths]
+        titles = [None for log_path in log_paths]
     if ax_labels is None:
         ax_labels = [None, None, None]
     if x_starts is None:
@@ -39,17 +39,26 @@ def plot_result_eg(log_paths, file_name, titles=None, ax_labels=None,
     n_log = len(y_all)
 
     if fig_type == 'image':
-        fig, ax = plot_tools.subplots(n_log, 1, sharex=True, sharey=True)
+        fig, ax = plot_tools.subplots(1, n_log, sharex=True, sharey=True)
         if n_log == 1:
             ax = [ax]
-        for y, ax_tmp, title in zip(y_all, ax, titles):
-            plot_tools.plot_matrix(y.T, ax=ax_tmp, fig=fig)
-            ax_tmp.set_xlabel(ax_labels[0])
-            ax_tmp.set_ylabel(ax_labels[1])
-            ax_tmp.set_title(title)
+        max_amp = np.max([np.max(y) for y in y_all])
+        min_amp = np.min([np.min(y) for y in y_all])
+        for i in range(n_log):
+            if i == n_log-1:
+                plot_tools.plot_matrix(
+                    y_all[i].T, ax=ax[i], vmax=max_amp, vmin=min_amp, fig=fig)
+            else:
+                plot_tools.plot_matrix(
+                    y_all[i].T, ax=ax[i], vmax=max_amp, vmin=min_amp)
+            if i == 0:
+                ax[i].set_ylabel(ax_labels[1])
+            ax[i].set_xlabel(ax_labels[0])
+            ax[i].set_title(titles[i])
 
     elif fig_type == 'surf':
         fig = plt.figure(figsize=plot_tools.get_figsize(1, n_log))
+        ax_tmp = None
         for y_i, y in enumerate(y_all):
             ax_tmp = fig.add_subplot(
                 n_log, 1, y_i+1, projection='3d',

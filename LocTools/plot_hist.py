@@ -35,7 +35,7 @@ def plot_hist(log_path, n_bin=-1, xlim=None, var_i=0, file_name_required=None,
         if xlim is not None:
             min_value, max_value = xlim
         else:
-            min_value, max_value = np.max(values), np.min(values)
+            min_value, max_value = np.min(values), np.max(values)
         bin_edges = np.linspace(min_value, max_value, n_bin+1)
         bin_width = bin_edges[1] - bin_edges[0]
 
