@@ -6,7 +6,8 @@ from BasicTools.parse_file import file2dict
 
 
 def plot_hist(log_path, n_bin=-1, xlim=None, var_i=0, file_name_required=None,
-              x_label=None, fig_path=None, interactive=False):
+              x_label=None, fig_path=None, interactive=False,
+              fig=None, ax=None):
     log = file2dict(log_path, numeric=True)
     values = None
     if file_name_required is None:
@@ -43,7 +44,10 @@ def plot_hist(log_path, n_bin=-1, xlim=None, var_i=0, file_name_required=None,
         freqs = freqs/np.sum(freqs)*100
         centers = (bin_edges[1:] + bin_edges[:-1])/2
 
-    fig, ax = plt.subplots(1, 1)
+    if ax is None:
+        fig, ax = plt.subplots(1, 1)
+    elif fig is None:
+        fig = None
     ax.bar(centers, freqs, width=bin_width, edgecolor='black')
     # ax.set_xticks(centers)
     ax.set_ylabel('Percentage(%)')
@@ -56,6 +60,7 @@ def plot_hist(log_path, n_bin=-1, xlim=None, var_i=0, file_name_required=None,
 
     if interactive:
         plt.show()
+    return fig, ax
 
 
 def parse_args():

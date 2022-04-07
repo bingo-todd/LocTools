@@ -26,7 +26,7 @@ def divide_into_bins(x_str_all, n_bin):
         min_value = x_value_all[sort_index[0]]
         max_value = x_value_all[sort_index[-1]]
         bin_width = (max_value-min_value + 1e-10)/n_bin
-        bin_edges = np.zeros(n_bin, 2)
+        bin_edges = np.zeros((n_bin, 2))
         bin_edges[:, 0] = np.arange(n_bin)*bin_width
         bin_edges[:, 1] = bin_edges[:, 0] + bin_width
 
